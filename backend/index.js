@@ -4,21 +4,22 @@ import { MONGO_URI, PORT } from './config/env_config.js';
 import cookieParser from 'cookie-parser';
 import { corsMiddleware } from './middleware/cors_middleware.js';
 import authRoute from './routes/auth_route.js';
-import { errorhandler } from './middleware/errorhandler_middleware.js';
-
+import { errorHandler } from './middleware/errorhandler_middleware.js';
+import helmet from 'helmet'
 const app = express();
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({extended:true}));
-app.use(cookieParser());
 app.use(corsMiddleware);
+app.use(helmet())
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api', authRoute);
 
 // Error-Handler Middleware
-app.use(errorhandler);
+app.use(errorHandler);
 
 // Connect to DB
 ConnetDB(MONGO_URI)
