@@ -1,13 +1,16 @@
 import User from "../models/user_auth_model.js";
-import { signupValidator } from "../middleware/validator_middleware.js";
-import { doHash } from "../utils/hashing.js";
+import { signinSchema, signupSchema } from "../middleware/validator_middleware.js";
+import { doHash, doHashValidation } from "../utils/hashing.js";
 import CustomError from "../utils/customError.js";
-
+import jwt from 'jsonwebtoken';
+import { TOKEN_SECRET } from "../config/env_config.js";
 /**
  * Controller to handle user signup.
  * Validates input, checks for existing users, hashes the password, and saves the new user.
  */
 
+
+// user Sign Up function
 export const userSignup = async (req, res, next) => {
     const { email, password } = req.body;
 
@@ -18,7 +21,7 @@ export const userSignup = async (req, res, next) => {
         }
 
         // Validate input format
-        const { error } = signupValidator.validate({ email, password });
+        const { error } = signupSchema.validate({ email, password });
         if (error) {
             throw new CustomError(error.details[0].message, 400, false);
         }
@@ -38,7 +41,7 @@ export const userSignup = async (req, res, next) => {
             password: hashedPassword,
         });
         const savedUser = await newUser.save();
-        
+
         // Remove the password before sending the response
         savedUser.password = undefined;
 
@@ -56,4 +59,44 @@ export const userSignup = async (req, res, next) => {
         console.error("Error saving user:", error);
         next(new CustomError("Internal server error", 500, false)); // Default to internal server error
     }
+};
+
+
+// user Sign In function
+export const userSingin = async (req, res, next) => {
+    const { email, password } = req.body;
+    try {
+        const { error } = signinSchema.validator({ email, password });
+        if (error) {
+            throw new CustomError(error.details[0].message, 400, false)
+        }
+
+        const existingUser = await User.findOne({ email }).select('+paasword')
+        if (!existingUser) {
+            throw new CustomError("User does not exists!", false, 401);
+        }
+        const result = doHashValidation(password, existingUser.password);
+        if (!result) {
+            throw new CustomError("Invalid credentials!", false, 401);
+        }
+        const token = jwt.sign({
+            userId: existingUser._id,
+            email: existingUser.email,
+            verified: existingUser.verified
+        }, TOKEN_SECRET)
+
+        res.cookie('Authorization', 'Bearer', +token, {
+            expires: new Date(Date.now() + 8 * 3600000),
+            httpOnly: process.env.NODE_ENV === 'production',
+            success: true,
+            token,
+            message: 'loggedIn successfully'
+        })
+    }
+    catch (error) {
+        if (error instanceof CustomError) return next(error)
+    }
+
+    console.log("Error SignIn user", error);
+    next(new CustomError("Internal server error", 500, false))  // Default to internal server error
 };
