@@ -66,37 +66,42 @@ export const userSignup = async (req, res, next) => {
 export const userSingin = async (req, res, next) => {
     const { email, password } = req.body;
     try {
-        const { error } = signinSchema.validator({ email, password });
+        const { error } = signinSchema.validate({ email, password });
         if (error) {
             throw new CustomError(error.details[0].message, 400, false)
         }
 
-        const existingUser = await User.findOne({ email }).select('+paasword')
+        const existingUser = await User.findOne({ email }).select('+password');
         if (!existingUser) {
-            throw new CustomError("User does not exists!", false, 401);
+            throw new CustomError("User does not exists!", 401, false);
         }
-        const result = doHashValidation(password, existingUser.password);
+
+        const result = await doHashValidation(password, existingUser.password);
         if (!result) {
-            throw new CustomError("Invalid credentials!", false, 401);
+            throw new CustomError("Invalid credentials!", 401, false);
         }
+
         const token = jwt.sign({
             userId: existingUser._id,
             email: existingUser.email,
             verified: existingUser.verified
-        }, TOKEN_SECRET)
+        }, TOKEN_SECRET,
+            { expiresIn: '8h' }
+        )
 
-        res.cookie('Authorization', 'Bearer', +token, {
+        res.cookie('Authorization', `Bearer ${token}`, {
             expires: new Date(Date.now() + 8 * 3600000),
             httpOnly: process.env.NODE_ENV === 'production',
+            secure: process.env.NODE_ENV === 'production',
+        }).json({
             success: true,
             token,
-            message: 'loggedIn successfully'
+            message: 'Logged in successfully'
         })
     }
     catch (error) {
         if (error instanceof CustomError) return next(error)
+        console.log("Error signing in user:", error);
+        next(new CustomError("Internal server error", 500, false))
     }
-
-    console.log("Error SignIn user", error);
-    next(new CustomError("Internal server error", 500, false))  // Default to internal server error
 };
