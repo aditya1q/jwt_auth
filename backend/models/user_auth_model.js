@@ -1,6 +1,13 @@
 import mongoose from 'mongoose';
 
 const uesrAuthSchema = mongoose.Schema({
+    name: {
+        type: String,
+        required: [true, "name is required"],
+        trim: true,
+        // select: false,
+        unique: [true, "name must be unique"],
+    },
     email: {
         type: String,
         required: [true, "Email is required"],
@@ -15,13 +22,6 @@ const uesrAuthSchema = mongoose.Schema({
         trim: true,
         select: false
     },
-    // username: {
-    //     type: String,
-    //     required: [true, "Username is required"],
-    //     trim: true,
-    //     select: false,
-    //     unique: [true, "Username must be unique"],
-    // },
     verified: {
         type: Boolean,
         default: false
